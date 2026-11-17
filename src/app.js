@@ -1,6 +1,6 @@
 import {createProject,validateProject,addFile,renameFile,validPath,languageOf,MAX_PROJECT_BYTES,MAX_SOURCE,ENGINE_ORIGIN,isValidEngineOrigin,outgoingFile} from './project.js';
 const $=id=>document.getElementById(id),KEY='warlike.visual-code.workspace.v1';
-let project,active='',openTabs=[],dirty=new Set(),monaco=null,codeEditor=null,models=new Map(),engineWindow=null,engineOrigin='',connectionId='',connected=false,ready=false,lastRequest='';
+let project,active='',openTabs=[],dirty=new Set(),monaco=null,codeEditor=null,models=new Map(),engineWindow=null,engineOrigin='',connectionId='',connected=false,ready=false,lastRequest='',batchQueue=[],batchTotal=0,batchSent=0;
 const file=()=>project.files.find(f=>f.path===active);
 const text=()=>codeEditor?codeEditor.getValue():$('codeInput').value;
 const setStatus=(message,error=false)=>{$('status').textContent=message;$('status').classList.toggle('status-error',error)};
@@ -31,6 +31,7 @@ function render(){
   const b=nameButton((dirty.has(path)?'● ':'')+path.split('/').at(-1),()=>activate(path),'tab'+(path===active?' active':''));b.setAttribute('role','tab');b.setAttribute('aria-selected',String(path===active));tabs.append(b);
  }
  $('sendEngine').disabled=!connected||!file()||!['warscript','csharp','javascript','typescript'].includes(languageOf(active));
+ $('sendProject').disabled=!connected||!project.files.some(f=>['warscript','csharp','javascript','typescript'].includes(languageOf(f.path)));
 }
 function updateNumbers(){const t=$('codeInput'),lines=t.value.split('\n').length;$('lineNumbers').textContent=Array.from({length:Math.min(lines,10000)},(_,i)=>i+1).join('\n');$('lineNumbers').scrollTop=t.scrollTop}
 function updatePosition(){
@@ -73,7 +74,7 @@ function diagnostics(){
  }
  $('problemCount').textContent=problems.length;$('problems').textContent=problems.length?problems.join('\n'):'Aucun problème structurel détecté. Ceci n’est pas une compilation complète.';selectPanel(false);setStatus('Analyse syntaxique légère terminée. La compilation WarScript/C# complète se fait dans Engine.');log('Analyse '+f.path+' : '+problems.length+' problème(s)')}
 function selectPanel(output){$('problems').hidden=output;$('output').hidden=!output;$('problemsTab').classList.toggle('active',!output);$('outputTab').classList.toggle('active',output)}
-function disconnect(message='Déconnecté d’Engine'){connected=false;ready=false;engineWindow=null;connectionId='';$('linkState').textContent='● Hors connexion Engine';$('sendEngine').disabled=true;setStatus(message)}
+function disconnect(message='Déconnecté d’Engine'){connected=false;ready=false;engineWindow=null;connectionId='';batchQueue=[];batchSent=0;batchTotal=0;$('linkState').textContent='● Hors connexion Engine';$('sendEngine').disabled=true;$('sendProject').disabled=true;setStatus(message)}
 function startConnection(){const value=$('engineOrigin').value.trim();if(!isValidEngineOrigin(value)){setStatus('Origine Engine invalide : HTTPS requis (ou localhost).',true);return}
  if(!confirm('Ouvrir '+value+' et demander une connexion facultative ?'))return;
  engineOrigin=value;connectionId=crypto.randomUUID();ready=false;connected=false;
@@ -86,10 +87,37 @@ window.addEventListener('message',event=>{
  const msg=event.data;
  if(msg.type==='wvc:ready'&&typeof msg.protocol==='number'&&msg.protocol===1){ready=true;engineWindow.postMessage({type:'wvc:hello',protocol:1,session:connectionId},engineOrigin);}
  else if(msg.type==='wvc:connected'&&msg.session===connectionId){connected=true;$('linkState').textContent='● Lié à Engine (manuel)';setStatus('Connexion autorisée : envoie seulement les scripts que tu choisis.');render()}
- else if(msg.type==='wvc:ack'&&connected&&msg.session===connectionId&&msg.requestId===lastRequest){setStatus(msg.ok?'✓ Fichier reçu dans Script Studio Engine':'Engine a refusé : '+(msg.error||'erreur inconnue'),!msg.ok);log('Engine : '+(msg.ok?'script reçu':'refus : '+msg.error))}
+ else if(msg.type==='wvc:ack'&&connected&&msg.session===connectionId&&msg.requestId===lastRequest){setStatus(msg.ok?'✓ Fichier reçu dans Script Studio Engine':'Engine a refusé : '+(msg.error||'erreur inconnue'),!msg.ok);log('Engine : '+(msg.ok?'script reçu':'refus : '+msg.error));if(batchTotal){if(msg.ok){batchSent++;sendNextFromBatch()}else{batchQueue=[];setStatus('Transfert arrêté après '+batchSent+' / '+batchTotal+' scripts : '+(msg.error||'refus'),true);batchTotal=0}}}
  else if(msg.type==='wvc:disconnect'&&msg.session===connectionId)disconnect('Engine a terminé la session.');
 });
-function sendEngine(){if(!connected||!engineWindow||engineWindow.closed){disconnect();return}try{const data=outgoingFile(file());lastRequest=crypto.randomUUID();engineWindow.postMessage({type:'wvc:push',protocol:1,session:connectionId,requestId:lastRequest,file:data},engineOrigin);setStatus('Fichier envoyé pour import dans Script Studio.')}catch(e){setStatus(e.message,true)}}
+function pushSource(f){
+ if(!connected||!engineWindow||engineWindow.closed){disconnect();return false}
+ const data=outgoingFile(f);lastRequest=crypto.randomUUID();
+ engineWindow.postMessage({type:'wvc:push',protocol:1,session:connectionId,requestId:lastRequest,file:data},engineOrigin);
+ return true;
+}
+function sendNextFromBatch(){
+ if(!batchTotal)return;
+ if(!batchQueue.length){setStatus('✓ '+batchSent+' scripts reçus par Script Studio Engine (sans exécution).');batchTotal=0;return}
+ const next=batchQueue.shift();
+ try{if(pushSource(next))setStatus('Transfert '+(batchSent+1)+' / '+batchTotal+' : '+next.path)}
+ catch(error){batchQueue=[];batchTotal=0;setStatus('Transfert interrompu : '+error.message,true)}
+}
+function sendProject(){
+ if(!connected){setStatus('Connecte d’abord Engine.',true);return}
+ if(batchTotal){setStatus('Un transfert est déjà en cours.',true);return}
+ const files=project.files.filter(f=>['warscript','csharp','javascript','typescript'].includes(languageOf(f.path)));
+ if(!files.length)return;
+ if(files.length>63){setStatus('63 scripts maximum par lot. Exporte le projet et sélectionne les scripts nécessaires.',true);return}
+ if(!confirm('Transférer '+files.length+' scripts dans Script Studio ? Les fichiers sont ajoutés comme documents, sans exécution ni modification de scène.'))return;
+ try{files.forEach(outgoingFile);batchQueue=[...files];batchTotal=files.length;batchSent=0;sendNextFromBatch()}
+ catch(error){batchQueue=[];batchTotal=0;setStatus(error.message,true)}
+}
+function sendEngine(){
+ if(batchTotal){setStatus('Le transfert du projet est en cours.',true);return}
+ try{if(pushSource(file()))setStatus('Fichier envoyé pour import dans Script Studio.')}
+ catch(e){setStatus(e.message,true)}
+}
 $('codeInput').addEventListener('input',()=>{updateNumbers();updateActive();render();storeSession()});$('codeInput').addEventListener('scroll',updateNumbers);$('codeInput').addEventListener('click',updatePosition);$('codeInput').addEventListener('keyup',updatePosition);
 $('codeInput').addEventListener('keydown',e=>{if(e.key==='Tab'){e.preventDefault();const t=e.target,start=t.selectionStart,end=t.selectionEnd;t.setRangeText('    ',start,end,'end');t.dispatchEvent(new Event('input',{bubbles:true}))}});
 $('newProject').onclick=()=>{if(!confirm('Créer un nouveau projet ? Exporte ton projet actuel si tu souhaites le conserver.'))return;for(const model of models.values())model.dispose();models.clear();project=createProject();openTabs=[];activate(project.files[0].path);store()};
@@ -99,7 +127,7 @@ $('download').onclick=()=>{if(file())download(active.split('/').at(-1),file().so
 $('importFiles').onclick=()=>$('filePicker').click();$('projectPicker').onchange=importProject;$('filePicker').onchange=importFiles;
 $('check').onclick=diagnostics;$('engineButton').onclick=()=>$('engineDialog').showModal();
 $('startConnection').addEventListener('click',e=>{e.preventDefault();$('engineDialog').close();startConnection()});
-$('sendEngine').onclick=sendEngine;$('projectName').addEventListener('change',e=>{project.name=e.target.value.trim().slice(0,90)||'Mon projet';store()});
+$('sendEngine').onclick=sendEngine;$('sendProject').onclick=sendProject;$('projectName').addEventListener('change',e=>{project.name=e.target.value.trim().slice(0,90)||'Mon projet';store()});
 $('fileSearch').addEventListener('input',render);$('focusSearch').onclick=()=>{$('fileSearch').focus();document.querySelector('.explorer').classList.add('show')};
 $('toggleOutline').onclick=()=>document.querySelector('.outline').classList.toggle('show');
 $('problemsTab').onclick=()=>selectPanel(false);$('outputTab').onclick=()=>selectPanel(true);
