@@ -46,5 +46,6 @@ export const ENGINE_ORIGIN='https://warlike-engine.pages.dev';
 export const MAX_BRIDGE_PAYLOAD=MAX_SOURCE;
 export function outgoingFile(file){
  if(!file||!['warscript','csharp','javascript','typescript'].includes(languageOf(file.path)))throw Error('Ce type de script ne peut pas être envoyé à Engine.');
- return {path:validPath(file.path),source:String(file.source).slice(0,MAX_BRIDGE_PAYLOAD),language:languageOf(file.path)};
+ if(typeof file.source!=='string'||file.source.length>MAX_BRIDGE_PAYLOAD)throw Error('Script trop volumineux pour Engine.');
+ return {path:validPath(file.path),source:file.source,language:languageOf(file.path)};
 }
