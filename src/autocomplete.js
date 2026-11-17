@@ -5,7 +5,7 @@ const PROPS=['Time.deltaTime','Time.fixedDeltaTime','Time.time','transform.posit
 const WORDS=['public','private','void','float','int','bool','string','var','Vector3','if','else','while','return','true','false','class','MonoBehaviour'];
 const entry=(label,insert=label,kind='keyword',detail='')=>({label,insert,kind,detail});
 const args={
- 'transform.Translate':'0, 0, 0','transform.Rotate':'0, 0, 0',
+ 'transform.Translate':'__CURSOR__, 0, 0','transform.Rotate':'__CURSOR__, 0, 0',
  'Animator.SetFloat':'"Speed", 0','Animator.SetInteger':'"State", 0','Animator.SetBool':'"Running", true',
  'Mathf.Clamp':'0, 0, 1','Mathf.Min':'0, 1','Mathf.Max':'0, 1','Vector3':'0, 0, 0',
  'gameObject.SetActive':'true','Input.GetKey':'"w"','Input.GetKeyDown':'"space"'
