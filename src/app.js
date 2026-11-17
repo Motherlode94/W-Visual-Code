@@ -129,7 +129,7 @@ function sendEngine(){
  catch(e){setStatus(e.message,true)}
 }
 $('codeInput').addEventListener('input',()=>{updateNumbers();updateActive();render();storeSession()});$('codeInput').addEventListener('scroll',updateNumbers);$('codeInput').addEventListener('click',updatePosition);$('codeInput').addEventListener('keyup',updatePosition);
-$('codeInput').addEventListener('keydown',e=>{if(e.key==='Tab'){e.preventDefault();const t=e.target,start=t.selectionStart,end=t.selectionEnd;t.setRangeText('    ',start,end,'end');t.dispatchEvent(new Event('input',{bubbles:true}))}});
+$('codeInput').addEventListener('keydown',e=>{if(e.key==='Tab'&&$('completionPopup').hidden){e.preventDefault();const t=e.target,start=t.selectionStart,end=t.selectionEnd;t.setRangeText('    ',start,end,'end');t.dispatchEvent(new Event('input',{bubbles:true}))}});
 $('newProject').onclick=()=>{if(!confirm('Créer un nouveau projet ? Exporte ton projet actuel si tu souhaites le conserver.'))return;for(const model of models.values())model.dispose();models.clear();project=createProject();openTabs=[];activate(project.files[0].path);store()};
 $('newFile').onclick=newFile;$('addSmall').onclick=newFile;
 $('save').onclick=store;$('exportProject').onclick=exportProject;$('importProject').onclick=()=>$('projectPicker').click();
