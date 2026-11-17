@@ -1,4 +1,5 @@
 import {createProject,validateProject,addFile,renameFile,validPath,languageOf,MAX_PROJECT_BYTES,MAX_SOURCE,ENGINE_ORIGIN,isValidEngineOrigin,outgoingFile} from './project.js';
+import {setupAutocomplete} from './autocomplete-ui.js';
 const $=id=>document.getElementById(id),KEY='warlike.visual-code.workspace.v1';
 let project,active='',openTabs=[],dirty=new Set(),monaco=null,codeEditor=null,models=new Map(),engineWindow=null,engineOrigin='',connectionId='',connected=false,ready=false,lastRequest='',batchQueue=[],batchTotal=0,batchSent=0,ackTimer=null;
 const file=()=>project.files.find(f=>f.path===active);
@@ -16,6 +17,7 @@ function setText(value){if(codeEditor){codeEditor.setValue(value)}else{$('codeIn
 function editorLanguage(path){const lang=languageOf(path);return ({warscript:'csharp',csharp:'csharp',cpp:'cpp',python:'python',javascript:'javascript',typescript:'typescript',json:'json',html:'html',css:'css',markdown:'markdown'})[lang]||'plaintext'}
 function activate(path){if(!project.files.some(f=>f.path===path))return;
  active=path;if(!openTabs.includes(path))openTabs.push(path);
+ if(typeof autocompletion!=='undefined')autocompletion.close();
  const f=file();if(codeEditor){let model=models.get(path);if(!model){model=monaco.editor.createModel(f.source,editorLanguage(path));models.set(path,model)}codeEditor.setModel(model);}else setText(f.source);
  $('filepath').textContent=path;$('language').textContent=languageOf(path);render();updateOutline();updatePosition();storeSession();
 }
@@ -143,6 +145,12 @@ $('fileTree').addEventListener('contextmenu',e=>{if(!e.target.closest('button')|
 document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='s'){e.preventDefault();store()}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='o'){e.preventDefault();$('projectPicker').click()}if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='f'){e.preventDefault();$('fileSearch').focus()}});
 window.addEventListener('beforeunload',()=>{try{storeSession()}catch{}});
 load();$('codeInput').value='';if(active)activate(active);else render();log('W Visual Code autonome prêt. Aucun accès au moteur sans demande explicite.');
+const autocompletion=setupAutocomplete({
+ textarea:$('codeInput'),popup:$('completionPopup'),trigger:$('completeButton'),
+ getProject:()=>({language:languageOf(active),activePath:active,files:project?.files||[]}),
+ change:()=>storeSession()
+});
+
 // Optional Monaco enhancement only. Offline native textarea always works.
 async function loadMonaco(){try{
  const url='https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js';
@@ -154,6 +162,7 @@ async function loadMonaco(){try{
  $('monaco').hidden=false;$('fallback').hidden=true;$('editorKind').textContent='Monaco · coloration et complétion';
  codeEditor.onDidChangeModelContent(()=>{if(!file())return;updateActive();render();storeSession()});
  codeEditor.onDidChangeCursorPosition(updatePosition);
+ autocompletion.attachMonaco(monaco,codeEditor);
  if(active){const f=file();const model=monaco.editor.createModel(f.source,editorLanguage(active));models.set(active,model);codeEditor.setModel(model)}
  }catch{log('Monaco indisponible : éditeur texte natif conservé.');$('editorKind').textContent='Éditeur local · hors ligne'}}
 loadMonaco();
