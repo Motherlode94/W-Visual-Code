@@ -14,12 +14,12 @@
 ## Intégration facultative avec WarLike Engine
 1. Depuis W Visual Code : **Connecter Engine** puis ouvrir Script Studio.
 2. Dans l’onglet Engine, confirmer l'autorisation demandée pour l’origine WVC.
-3. Revenir à W Visual Code et utiliser **Envoyer vers Engine** sur un fichier `.wls`, `.cs`, `.js` ou `.ts`.
+3. Revenir à W Visual Code et utiliser **Envoyer vers Engine** sur un fichier `.wls`, `.cs`, `.js` ou `.ts`, ou **Envoyer les scripts du projet** pour un transfert manuel séquentiel (63 fichiers maximum par lot, accusé de réception et arrêt en cas d'erreur).
 4. Le script apparaît comme un document **dans Script Studio**. Il n’est pas automatiquement attaché à une scène, exécuté ou compilé.
 
 Le protocole `postMessage` vérifie l’origine exacte, la fenêtre ouverte, la version de protocole, un identifiant de session et des limites strictes de taille/types. Engine doit déployer sa propre PR d’intégration avant que la connexion fonctionne sur le site public. Aucun accès direct aux autres onglets, projets, fichiers locaux ni à la base de données d’Engine n’est accordé.
 
-**Limites v1 :** pas de LSP C# opérationnel, pas de debugging/points d’arrêt distants, pas de synchro multi-fichiers bidirectionnelle ni compilation C# dans le navigateur. Le pont natif C# reste géré séparément par Engine. L’utilisateur doit confirmer les scripts et leurs permissions avant exécution.
+**Limites v1 :** les dossiers des fichiers envoyés sont conservés dans W Visual Code mais Script Studio importe les noms de fichiers seulement ; en cas de conflit de nom, il crée une copie suffixée. Les scripts envoyés ne sont pas automatiquement liés à la scène 3D. La validation bout-en-bout doit être effectuée avec les deux sites déployés.\n\n**Limites v1 :** pas de LSP C# opérationnel, pas de debugging/points d’arrêt distants, pas de synchro multi-fichiers bidirectionnelle ni compilation C# dans le navigateur. Le pont natif C# reste géré séparément par Engine. L’utilisateur doit confirmer les scripts et leurs permissions avant exécution.
 
 ## Développement et déploiement
 ```bash
