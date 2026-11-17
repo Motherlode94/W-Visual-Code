@@ -22,4 +22,6 @@ jobs:
           test -s dist/index.html
           test -s dist/src/app.js
           test -s dist/src/project.js
+          test -s dist/src/autocomplete.js
+          test -s dist/src/autocomplete-ui.js
           test -s dist/style.css
