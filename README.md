@@ -11,6 +11,15 @@
 - Analyse légère des délimiteurs/chaînes et du JSON ; **pas de compilation complète** dans l’éditeur autonome.
 - Aucun script importé n’est exécuté automatiquement.
 
+## Autocomplétion contextuelle v0.2
+
+- **WarScript** : suggestions des appels réellement documentés par Engine (`transform.Translate`, `Animator.Play`, `Input.GetKey`, `Time.deltaTime`, etc.), propriétés et huit callbacks de cycle de vie MonoBehaviour.
+- **C# / JS / TS / Python / C/C++** : mots-clés et symboles déclarés dans les autres fichiers du projet. Ceci est une aide à la saisie, **pas un LSP ni un compilateur**.
+- **Monaco** : suggestions contextuelles au clavier et après un point, sur la base du fichier actif.
+- **Éditeur de secours hors ligne** : suggestions dès deux caractères ou `Ctrl+Espace`, navigation avec flèches, validation avec Entrée/Tab, fermeture avec Échap ; snippets avec positionnement du curseur.
+- Les suggestions sont calculées **en local**, sans exécuter de scripts ni transmettre le projet à un service externe. Monaco lui-même reste optionnel et est actuellement récupéré via CDN lorsqu'il est disponible.
+- Les API qui n'appartiennent qu'au C# natif, telles que `GetComponent<T>()`, ne sont pas présentées comme étant exécutables dans WarScript `.wls`.
+
 ## Intégration facultative avec WarLike Engine
 1. Depuis W Visual Code : **Connecter Engine** puis ouvrir Script Studio.
 2. Dans l’onglet Engine, confirmer l'autorisation demandée pour l’origine WVC.
